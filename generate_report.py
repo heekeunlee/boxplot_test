@@ -20,17 +20,15 @@ html_template = """<!DOCTYPE html>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <style>
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; line-height: 1.5; }
-        #password-overlay { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
-        .pass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); text-align: center; width: 320px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-        .pass-card h2 { color: white; margin-bottom: 8px; font-size: 22px; }
-        .pass-card p.sub { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
-        .pass-input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: white; text-align: center; font-size: 20px; margin-bottom: 20px; outline: none; transition: border 0.3s; }
-        .pass-input:focus { border-color: #3b82f6; }
-        .btn-unlock { width: 100%; padding: 14px; border-radius: 12px; border: none; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-weight: 700; cursor: pointer; font-size: 16px; transition: transform 0.2s; }
-        .btn-unlock:hover { transform: scale(1.02); }
-        #err-msg { color: #fb7185; margin-top: 12px; font-size: 13px; font-weight: 500; display: none; }
+        
+        #splash-screen { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        .splash-content { text-align: center; color: white; }
+        .splash-logo { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 20px; background: linear-gradient(135deg, #3b82f6, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .loading-bar-bg { width: 240px; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin: auto; overflow: hidden; }
+        .loading-bar-fill { width: 0%; height: 100%; background: #3b82f6; transition: width 3s linear; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+        .splash-status { margin-top: 15px; font-size: 14px; color: #94a3b8; font-weight: 500; }
 
-        .report-container { max-width: 1000px; margin: auto; background: white; padding: 50px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .report-container { max-width: 1000px; margin: auto; background: white; padding: 50px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: none; opacity: 0; transition: opacity 1s ease; }
         header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
         h1 { margin: 0; color: #0f172a; font-size: 28px; letter-spacing: -0.025em; }
         .btn-group { display: flex; gap: 10px; }
@@ -47,20 +45,21 @@ html_template = """<!DOCTYPE html>
         .btn-pptx { background: #d04423; }
         .btn-action:hover { opacity: 0.9; transform: translateY(-1px); }
         .footer { margin-top: 50px; text-align: center; color: #94a3b8; font-size: 13px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-        @media print { .btn-group { display: none; } body { margin: 0; padding: 0; background: white; } .report-container { box-shadow: none; border: none; width: 100%; max-width: none; padding: 0; } }
+        @media print { .btn-group { display: none; } body { margin: 0; padding: 0; background: white; } .report-container { box-shadow: none; border: none; width: 100%; max-width: none; padding: 0; display: block !important; opacity: 1 !important; } #splash-screen { display: none !important; } }
     </style>
 </head>
 <body>
-    <div id="password-overlay">
-        <div class="pass-card">
-            <h2>Access Restricted</h2>
-            <p class="sub">수업용 시연 리포트를 위한 인증이 필요합니다.</p>
-            <input type="password" id="pass-input" class="pass-input" placeholder="Password" onkeydown="if(event.key==='Enter') checkPass()">
-            <button class="btn-unlock" onclick="checkPass()">Unlock Report</button>
-            <p id="err-msg">비밀번호가 일치하지 않습니다.</p>
+    <div id="splash-screen">
+        <div class="splash-content">
+            <div class="splash-logo">VIBE CODING LECTURE</div>
+            <div class="loading-bar-bg">
+                <div class="loading-bar-fill" id="loading-bar"></div>
+            </div>
+            <div class="splash-status" id="status-text">반도체 공정 데이터 분석 중...</div>
         </div>
     </div>
-    <div class="report-container">
+
+    <div class="report-container" id="report-main">
         <header>
             <div>
                 <h1>반도체 공정 선폭(CD) 데이터 분석 리포트</h1>
@@ -98,21 +97,6 @@ html_template = """<!DOCTYPE html>
     </div>
 
     <script>
-        function checkPass() {
-            const input = document.getElementById('pass-input').value;
-            if (input === '1234') {
-                const overlay = document.getElementById('password-overlay');
-                overlay.style.opacity = '0';
-                setTimeout(() => {
-                    overlay.style.display = 'none';
-                    initCharts();
-                }, 500);
-            } else {
-                document.getElementById('err-msg').style.display = 'block';
-                document.getElementById('pass-input').value = '';
-            }
-        }
-
         const rawData = {{DATA_JSON}};
 
         const cds = rawData.map(d => d.cd);
@@ -127,7 +111,6 @@ html_template = """<!DOCTYPE html>
         let boxChart, heatChart;
 
         function initCharts() {
-            // Boxplot
             boxChart = new Chart(document.getElementById('boxplot').getContext('2d'), {
                 type: 'boxplot',
                 data: {
@@ -151,7 +134,6 @@ html_template = """<!DOCTYPE html>
                 }
             });
 
-            // Heatmap (Scatter)
             heatChart = new Chart(document.getElementById('heatmap').getContext('2d'), {
                 type: 'scatter',
                 data: {
@@ -190,13 +172,10 @@ html_template = """<!DOCTYPE html>
 
         function exportToPPTX() {
             let pptx = new PptxGenJS();
-            
-            // 1. Title Slide
             let slide1 = pptx.addSlide();
             slide1.addText("반도체 공정 선폭(CD) 분석 보고서", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, align: 'center', color: '0f172a' });
             slide1.addText("Vibe Coding Lecture - 1.5μm Target Process", { x: 1, y: 3, w: 8, fontSize: 18, align: 'center', color: '64748b' });
 
-            // 2. Stats Slide
             let slide2 = pptx.addSlide();
             slide2.addText("공정 통계 요약 (Summary)", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2563eb' });
             slide2.addTable([
@@ -207,13 +186,11 @@ html_template = """<!DOCTYPE html>
                 ['타겟 (Target)', '1.5000 μm']
             ], { x: 1, y: 1.5, w: 8, border: { type: 'solid', color: 'e2e8f0' } });
 
-            // 3. BoxPlot Slide
             let slide3 = pptx.addSlide();
             slide3.addText("통계적 분포 (Box Plot)", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2563eb' });
             let boxImg = document.getElementById('boxplot').toDataURL("image/png");
             slide3.addImage({ data: boxImg, x: 0.5, y: 1.2, w: 9, h: 4.5 });
 
-            // 4. Wafer Map Slide
             let slide4 = pptx.addSlide();
             slide4.addText("공간적 분포 (Wafer Map)", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2563eb' });
             let mapImg = document.getElementById('heatmap').toDataURL("image/png");
@@ -222,9 +199,29 @@ html_template = """<!DOCTYPE html>
             pptx.writeFile({ fileName: "Semiconductor_CD_Analysis_Report.pptx" });
         }
 
-        // Auto-focus input on load
+        // --- Splash Control ---
         window.onload = () => {
-            document.getElementById('pass-input').focus();
+            const bar = document.getElementById('loading-bar');
+            const splash = document.getElementById('splash-screen');
+            const main = document.getElementById('report-main');
+            const status = document.getElementById('status-text');
+
+            // Trigger progress bar
+            setTimeout(() => { bar.style.width = '100%'; }, 100);
+
+            // Change status text midway
+            setTimeout(() => { status.innerText = '통계 및 시각화 리포트 생성 중...'; }, 1500);
+
+            // Hide splash and show report after 3 seconds
+            setTimeout(() => {
+                splash.style.opacity = '0';
+                main.style.display = 'block';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    main.style.opacity = '1';
+                    initCharts();
+                }, 800);
+            }, 3000);
         };
     </script>
 </body>
@@ -235,4 +232,4 @@ final_html = html_template.replace('{{DATA_JSON}}', data_json)
 
 with open('cd_analysis_report.html', 'w') as f:
     f.write(final_html)
-print("Report generated successfully.")
+print("Report regenerated with splash screen.")
